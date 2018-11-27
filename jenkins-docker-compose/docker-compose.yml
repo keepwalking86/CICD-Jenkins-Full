@@ -1,0 +1,29 @@
+version: "3"
+
+services:
+    db:
+      image: mariadb:latest
+      volumes:
+        - ./db:/var/lib/mysql/laravel
+      restart: always
+      environment:
+        MYSQL_ROOT_PASSWORD: P@ssw0rd
+        MYSQL_DATABASE: laravel
+        MYSQL_USER: keepwalking
+        MYSQL_PASSWORD: P@ssw0rd
+
+    php-fpm:
+      build: ./docker/php-fpm
+      volumes:
+        - ./src:/var/www/example/
+
+    webapp:
+      depends_on:
+        - db
+        - php-fpm
+      build: ./docker/nginx
+      ports:
+        - 8081:80
+      restart: always
+      volumes:
+        - ./src:/var/www/example/

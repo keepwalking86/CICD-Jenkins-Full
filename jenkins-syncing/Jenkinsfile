@@ -1,0 +1,44 @@
+//Jenkinsfile for syncing code for Laravel
+node {
+    currentBuild.result = "SUCCESS"
+    try {
+        stage('Checkout'){
+                checkout scm
+            }
+            stage("Composer_Update") {
+                // Run composer update
+                sh 'composer update'
+            }
+            stage("PHPUnit") {
+                // Run PHPUnit
+                sh 'vendor/bin/phpunit'
+            }
+            // Deploy to multibranch
+            switch (env.BRANCH_NAME) {
+                case "master":
+                    stage("deploycode") {
+                        sh 'rsync -avzhP --delete --exclude=.git/ --exclude=Jenkinsifle $WORKSPACE/ root@192.168.1.112:/var/www/html/'
+                        sh 'ssh root@192.168.1.112 "chown -R nginx:nginx /var/www/html"'
+                    }
+                    break
+                case "develop":
+                    stage("deploycode") {
+                        sh 'rsync -avzhP --exclude=.git/ $WORKSPACE/ root@192.168.1.111:/var/www/html/'
+                        sh 'ssh root@192.168.1.111 "chown -R nginx:nginx /var/www/html"'
+                    }
+                    break
+                default:
+                    // No deployments for other branches
+                    break
+            }
+    }
+    catch (err) {
+        currentBuild.result = "FAILURE"
+            mail body: "project build error is here: ${env.BUILD_URL}" ,
+            from: 'info@vnsys.wordpress.com',
+            replyTo: 'info@vnsys.wordpress.com',
+            subject: 'project build failed',
+            to: 'keepwalking86@vnsys.wordpress.com'
+        throw err
+    }
+}

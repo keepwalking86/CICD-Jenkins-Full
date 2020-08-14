@@ -5,40 +5,51 @@ node {
         stage('Checkout'){
                 checkout scm
             }
-            stage("Composer_Update") {
-                // Run composer update
-                sh 'composer update'
-            }
-            stage("PHPUnit") {
-                // Run PHPUnit
-                sh 'vendor/bin/phpunit'
-            }
-            // Deploy to multibranch
-            switch (env.BRANCH_NAME) {
-                case "master":
-                    stage("deploycode") {
-                        sh 'rsync -avzhP --delete --exclude=.git/ --exclude=Jenkinsifle $WORKSPACE/ root@192.168.1.112:/var/www/html/'
-                        sh 'ssh root@192.168.1.112 "chown -R nginx:nginx /var/www/html"'
-                    }
-                    break
-                case "develop":
-                    stage("deploycode") {
-                        sh 'rsync -avzhP --exclude=.git/ $WORKSPACE/ root@192.168.1.111:/var/www/html/'
-                        sh 'ssh root@192.168.1.111 "chown -R nginx:nginx /var/www/html"'
-                    }
-                    break
-                default:
-                    // No deployments for other branches
-                    break
-            }
+        stage("Composer_Update") {
+            // Run composer update
+            sh 'composer update'
+        }
+        stage("PHPUnit") {
+            // Run PHPUnit
+            sh 'vendor/bin/phpunit'
+        }
+        // Deploy to multibranch
+        switch (env.BRANCH_NAME) {
+            case "master":
+                stage("deploycode") {
+                    sh 'rsync -avzhP --delete --exclude=.git/ --exclude=Jenkinsifle $WORKSPACE/ root@192.168.1.112:/var/www/html/'
+                    sh 'ssh root@192.168.1.112 "chown -R nginx:nginx /var/www/html"'
+                }
+                break
+            case "develop":
+                stage("deploycode") {
+                    sh 'rsync -avzhP --exclude=.git/ $WORKSPACE/ root@192.168.1.111:/var/www/html/'
+                    sh 'ssh root@192.168.1.111 "chown -R nginx:nginx /var/www/html"'
+                }
+                break
+            default:
+                // No deployments for other branches
+                break
+        }
+        notifySuccessful()
     }
     catch (err) {
         currentBuild.result = "FAILURE"
-            mail body: "project build error is here: ${env.BUILD_URL}" ,
-            from: 'info@vnsys.wordpress.com',
-            replyTo: 'info@vnsys.wordpress.com',
-            subject: 'project build failed',
-            to: 'keepwalking86@vnsys.wordpress.com'
+        notifyFailed()
+        notifyEmail
         throw err
     }
+}
+def notifyEmail() {
+        mail body: "project build error is here: ${env.BUILD_URL}" ,
+        from: 'info@vnsys.wordpress.com',
+        replyTo: 'info@vnsys.wordpress.com',
+        subject: 'project build failed',
+        to: 'keepwalking86@vnsys.wordpress.com'
+}
+def notifySuccessful() {
+        telegramSend (message: "SUCCESSFUL: Job '${env.JOB_NAME}' URL (${env.BUILD_URL})")
+}
+def notifyFailed() {
+        telegramSend (message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' (${env.BUILD_URL})")
 }
